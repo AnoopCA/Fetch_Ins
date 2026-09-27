@@ -141,13 +141,12 @@ if __name__ == "__main__":
 
     all_pdf_docs = process_all_PDFs(r"D:\ML_Projects\Fetch_Ins\Policy Documents")
     chunks = split_documents(all_pdf_docs, chunk_size=1000, chunk_overlap=100)
-    embeddingManager = EmbeddingManager()
-    vector_store = VectorStore(collection_name = "PDF_Documents", persistent_directory=r"D:\ML_Projects\Fetch_Ins\Vector Store\chromadb")
     texts = [doc.page_content for doc in chunks]
+    embeddingManager = EmbeddingManager()
     embeddings = embeddingManager.generate_embeddings(texts)
+    vector_store = VectorStore(collection_name = "PDF_Documents", persistent_directory=r"D:\ML_Projects\Fetch_Ins\Vector Store\chromadb")
     vector_store.add_document(chunks, embeddings)
     retriever = RAG_Retriever(vector_store, embeddingManager)
-
     groq_llm=GroqLLM(model_name="openai/gpt-oss-20b", api_key=groq_api_key)
 
     while True:
