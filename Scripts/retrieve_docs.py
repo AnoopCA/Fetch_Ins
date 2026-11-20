@@ -50,7 +50,12 @@ class VectorStore:
         self.client = chromadb.PersistentClient(path = persistent_directory)
         self.collection = self.client.get_or_create_collection(
             name = collection_name,
-            metadata = {"Description" : "PDF documents embedding for RAG"}
+            # Chroma's default is squared L2. Set cosine explicitly so the
+            # distance-to-similarity conversion in RAG_Retriever is valid.
+            metadata = {
+                "Description": "PDF documents embedding for RAG",
+                "hnsw:space": "cosine",
+            },
         )
 
     def add_document(self, documents, embeddings):
@@ -98,7 +103,9 @@ class RAG_Retriever:
             ids = results['ids'][0]
             distances = results['distances'][0]
             for i, (doc_id, document, metadata, distance) in enumerate(zip(ids, documents, metadatas, distances)):
-                similarity = 1- distance
+                # For cosine space, Chroma returns cosine distance (1 - cosine
+                # similarity), so this produces a score in the expected range.
+                similarity = 1.0 - distance
                 if similarity >= score_threshold:
                     retrieved_docs.append({
                         'id' : doc_id,
@@ -144,7 +151,9 @@ if __name__ == "__main__":
     texts = [doc.page_content for doc in chunks]
     embeddingManager = EmbeddingManager()
     embeddings = embeddingManager.generate_embeddings(texts)
-    vector_store = VectorStore(collection_name = "PDF_Documents", persistent_directory=r"D:\ML_Projects\Fetch_Ins\Vector Store\chromadb")
+    # Use a new collection name because Chroma cannot change the metric of an
+    # existing collection. The old PDF_Documents collection uses L2 distance.
+    vector_store = VectorStore(collection_name = "PDF_Documents_cosine", persistent_directory=r"D:\ML_Projects\Fetch_Ins\Vector Store\chromadb")
     vector_store.add_document(chunks, embeddings)
     retriever = RAG_Retriever(vector_store, embeddingManager)
     groq_llm=GroqLLM(model_name="openai/gpt-oss-20b", api_key=groq_api_key)
